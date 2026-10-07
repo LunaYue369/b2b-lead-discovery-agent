@@ -1,0 +1,36 @@
+# 运行时依赖。用到哪个加哪个，不预先装。
+#
+# 这两个都只在 adapters/ 和 discovery/prefilter.py 里 import，
+# models/ 仍然是纯标准库（scripts/check_isolation.py 守这条）。
+httpx>=0.27      # 调 Apify HTTP API
+pyyaml>=6.0      # 读 config/filters.yaml
+
+# Neon（Postgres）。装 binary 版是为了不用本地编译、也不用另外装 libpq，
+# 而且它自带的 libpq 支持 Neon 连接串里的 channel_binding。
+# 只在 persistence/ 里 import，models/ 依然是纯标准库。
+psycopg[binary]>=3.2
+
+# analyzer 的 LLM 打分。用官网咨询 bot 那把 key（.env，已 gitignore）。
+# 显式 json_schema 走的是 response_format，3.x 才有。
+openai>=3.6
+
+# step 7 的 interactive discovery：图 + 把一次对话挂几天的 checkpointer。
+# 只在 triggers/ 里 import —— scheduled discovery 是规则驱动的一次性流水线，
+# 不用图，所以 discovery/ 那一层永远不该出现 langgraph。
+#
+# checkpointer 单独一个包，它自带四张表和自己的 migration 版本号
+# （checkpoint_migrations），跟我们的 schema_migrations 各管各的。
+# 已在 Neon 上验过：建表、挂起、换连接恢复、连跑 30 轮零报错，
+# 见 scripts/verify_checkpointer.py。
+langgraph>=1.2
+langgraph-checkpoint-postgres>=3.1
+
+# step 6 的 Slack 早报和按钮。slack-bolt 带着 slack-sdk 一起装。
+#
+# 选 bolt 不选裸 slack-sdk：Socket Mode 那条长连接的重连、心跳、
+# 按钮回调的分发它都做好了，而这三样自己写就是三种不同的静默失败
+# （断线不重连、回调超时被 Slack 重投、action_id 分发漏一个分支）。
+#
+# 只在 delivery/ 里 import —— 核心层不许知道 Slack 存在，
+# scripts/check_isolation.py 守这条。
+slack-bolt>=1.20

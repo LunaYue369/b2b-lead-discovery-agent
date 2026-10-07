@@ -1,0 +1,102 @@
+{
+  "_comment": [
+    "Anti-hallucination whitelist. Every hard number the LLM states about the ODM",
+    "company itself - in analysis now, in outreach copy later - must come from this file.",
+    "A price, a customer name, a lead time or a quantity promise that is not here",
+    "counts as a hard failure, not a style problem.",
+    "Same principle as the blog worker eval layer: the deterministic check lives",
+    "outside the model. We do not ask the prompt to please not make things up.",
+    "",
+    "Entries carrying a source field are copied word for word from the acmedevices.example site.",
+    "The path is in that field - open it and compare before editing the entry.",
+    "Entries without a source were given directly by Alex or Morgan."
+  ],
+
+  "moq": {
+    "value": 500,
+    "unit": "units",
+    "claim": "minimum order quantity of 500 units",
+    "why_it_matters": [
+      "Most Chinese ODMs start at 1000-5000 units, so 500 units is a real differentiator.",
+      "A team that just finished a crowdfunding campaign and needs 800 units is in range,",
+      "and that team is exactly the one that cannot find a factory and is hurting most.",
+      "None of the competitors found in the first harvest runs advertise a number this low.",
+      "This is the line that belongs at the top of the outreach message."
+    ]
+  },
+
+  "categories": {
+    "claim": "audio and voice devices",
+    "items": [
+      "microphones",
+      "headsets",
+      "wearables with microphones",
+      "conference audio",
+      "voice recorders"
+    ],
+    "why_it_matters": [
+      "The ICP is not 'a hardware company'. It is 'a company that needs an audio or",
+      "voice device built and has no factory of its own'.",
+      "The first version of this project aimed at hardware in general, which was an",
+      "order of magnitude too wide."
+    ]
+  },
+
+  "services": {
+    "claim": "ODM / OEM / branding",
+    "source": "acme/main/custom-devices/odm-oem/index.html",
+    "oem_vs_odm": {
+      "oem": "You provide the design. We manufacture it.",
+      "odm": "We provide the hardware platform and customize it for your application."
+    },
+    "items": [
+      "Hardware Architecture - system and board-level design for on-device voice and edge AI",
+      "PCB Development - schematic capture and PCB layout for compact, low-power devices",
+      "Firmware Development - embedded firmware for audio, connectivity, and power management",
+      "Mechanical Design - industrial design and enclosures for wearable and desktop forms",
+      "Audio Tuning - microphone, beamforming, and noise-reduction tuning",
+      "Manufacturing - SMT, assembly, testing, and QC for production at scale",
+      "SDK & API Integration - Bluetooth/BLE behavior, Wi-Fi upload, OTA support",
+      "Prototype & Validation - EVT / DVT / PVT support",
+      "Private Label & Packaging - logo printing, laser engraving, custom packaging",
+      "Certification Support - testing coordination and documentation"
+    ],
+    "note": "Do not inflate this into phrases like 'end-to-end supply chain solution'. Nothing on the site says that."
+  },
+
+  "certifications": {
+    "claim": "certification testing coordination and documentation",
+    "source": "acme/main/custom-devices/odm-oem/index.html",
+    "items": ["FCC", "CE", "UKCA", "TELEC", "RoHS", "ISED"],
+    "note": "The site says coordination and documentation. We do not issue certificates. Never phrase this as 'already certified'."
+  },
+
+  "company": {
+    "source": "acme/main/custom-devices/index.html",
+    "years_of_engineering": "15+",
+    "odm_oem_projects_delivered": "250+",
+    "units_per_year": "500k+",
+    "offices": "Anaheim & Shenzhen",
+    "note": "These four numbers sit in one stats block on the site and are copied verbatim. Keep the plus sign, do not round them into exact figures."
+  },
+
+  "product_families": {
+    "source": "acme/main/products/index.html",
+    "items": [
+      "Wearable Recorders",
+      "Phone Entry",
+      "Speakers & Audio",
+      "Headsets",
+      "Smart Devices",
+      "Dev & Modules"
+    ],
+    "note": "Our own product lines. An ODM customer can start from one of these platforms. Individual model numbers (HA-MIC01 and the like) stay out of the whitelist: models get replaced, and a wrong model number in a message is worse than no model number."
+  },
+
+  "_todo": [
+    "Lead time, tooling and sample cost, named case studies by category - none of these",
+    "are on the website. They can only be added once Alex or Morgan gives exact figures.",
+    "Until then the message says nothing about them. An invented but plausible number",
+    "is the worst of the three options."
+  ]
+}

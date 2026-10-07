@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+# 让 `import models` 从仓库根解析。tests/ 刻意不做成 package。
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

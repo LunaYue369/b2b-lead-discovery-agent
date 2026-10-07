@@ -1,0 +1,59 @@
+# 建 Slack 应用用的清单。在 api.slack.com/apps 点 Create New App ->
+# From an app manifest -> 选 workspace -> 把这一整份粘进去。
+#
+# 用清单不用一路点：scope、Socket Mode、Interactivity 分散在四个不同的
+# 设置页里，漏掉哪一个都要到用的时候才报错（漏 interactivity 的症状是
+# 按钮点了没反应，前后端都不报错）。清单是一次性把它们全写对。
+#
+# scope 按最小权限给。早报那条路只做两件事：发一条消息、把自己发的那条
+# 消息更新一下，两件事都只需要 chat:write。另外两个是 step 7 在 Slack 里
+# 跟它说话那条路要的，理由写在 scopes 下面各自那一行。
+#
+# 没有 chat:write.public（那个是「不用被邀请就能往公开频道发」）。
+# 我们要的是私有频道 + 手动把 bot 邀请进去 —— 线索里有公司名和人名，
+# 频道该是私有的；而私有频道那个 scope 也帮不上，反正要邀请。
+#
+# 没有 channels:read / groups:read：发消息用频道 id，不需要列频道。
+# 没有 commands：没有斜杠命令，开一次对话用 @ 它就够了。
+# 改这份清单之后在应用设置页重装一次就行，不用重建应用。
+display_information:
+  name: B2B Outreach
+  description: 每天把过线的 B2B 硬件线索推进频道，等人拍板
+  background_color: "#1f2d3d"
+
+features:
+  bot_user:
+    display_name: b2b-outreach
+    # false 是实话：它不是聊天机器人，一天只醒一次。
+    # 写 true 会让头像常亮绿点，而那会让人以为随时能跟它说话。
+    always_online: false
+
+oauth_config:
+  scopes:
+    bot:
+      # 发早报，以及点完按钮之后把那张卡更新成「已收到」。
+      # 更新自己发的消息不需要额外 scope。
+      - chat:write
+      # 读私有频道里的消息。开对话（@ 它的那句）和 thread 里的后续回话
+      # 都从这一个 scope 来。代价是频道里每条消息都会投到我们进程，
+      # 既没 @ 它、又不在我们对话 thread 里的，由代码直接丢掉，不存不读。
+      #
+      # 没有 app_mentions:read：@ 它的那一句本身就是频道里的一条消息，
+      # 已经会作为 message 投过来。两个都订的话同一句话来两个事件，
+      # 还可能分到不同的连接上，得靠代码去重。只订一个就没有这个问题。
+      - groups:history
+
+settings:
+  # 按钮必须靠它。Socket Mode 开着的时候不需要填 Request URL ——
+  # 那条长连接是我们主动拨出去的，Slack 不需要能访问到我们。
+  # 这也是 EC2 公网 IP 每次重启都变却不影响这个 bot 的原因。
+  interactivity:
+    is_enabled: true
+  # 收消息靠它。跟按钮一样走同一条 Socket Mode 长连接，不用填 Request URL。
+  # 只订 message.groups 一种，理由见上面 groups:history 那一行。
+  event_subscriptions:
+    bot_events:
+      - message.groups
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false

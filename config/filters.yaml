@@ -1,0 +1,184 @@
+# prefilter 的规则词表。
+#
+# 硬要求：以后挖出第四类噪音，必须是这个文件加一行，不是改代码。
+#
+# 下面的词表来自前几跑 LinkedIn post 的人工实测，是起点不是定稿。
+#
+# 回归集已经有了：data/harvest_2026-08-27_010047.json（191 条真实采集）
+# 加 data/labels.json（逐条标注，五个类别）。这个文件每改一次都拿它跑一遍，
+# 出表：各规则各砍了多少 / 总共砍掉百分之几 / 有没有误砍真买方。
+# 误砍一条真买方比多留十条垃圾严重得多，最后那问是这里唯一要紧的问题。
+
+# ══════════════════════════════════════════════════════════════════════════
+# signal 级 —— 整条 raw item 丢弃。只放跟发帖人身份无关的规则。
+# ══════════════════════════════════════════════════════════════════════════
+signal_level:
+
+  # ① 一个相关性来源都没有。
+  #    LinkedIn 是语义相关匹配不是精确短语匹配，会把沾边的全拉进来，
+  #    所以要有一道闸门量「它到底跟我们有没有关系」。
+  #
+  #    判据不是「正文有没有命中词」一条，而是下面 relevance_channels 里
+  #    任意一条成立即可，全都不成立才砍。只认命中词的旧写法实测砍掉了
+  #    三分之一以上的真买方：发帖人换个说法、或者根本不是发帖人本人在
+  #    说自己的事，字面就对不上，而那条线索是真的。
+  #
+  #    加通道是在下面加一行，不是改代码。通道名要在 prefilter 里有对应
+  #    实现，写错当场炸，不会退化成「这条通道不生效」。
+  require_relevance_signal: true
+  relevance_channels:
+    # 正文里出现了这条 query 的词。发帖人自己用了我们的话。
+    - matched_terms
+    # 正文里 @ 了公司。这是结构化字段直接点名，属于身份精确通道 ——
+    # 它跟我们相不相关，不该由「发帖人用没用我们的词」来决定。
+    # 供应商吹「我们帮某某做了 5000 只耳机」，他一个我们的词都不用，
+    # 被点名的那家却正是买方。
+    - mentioned_companies
+
+  # ② 正文 hash 已见（跑内 + 跨天）。跨天那半边是重点：
+  #    不然明天同一篇被新账号转发又来一遍。
+  #
+  #    跨天这半边目前还没通：seen 集合是从参数传进来的，而调用方和库
+  #    都还不存在（step 2 Neon 未建）。首跑那 2 条全是跑内重复，
+  #    这个开关现在实际只在管跑内去重。
+  #
+  #    它管的是「这段正文见没见过」，不是「这家公司理没理过」。同一家公司
+  #    换个说法再发一帖，hash 不同就该放行 —— 那是新证据，该进 corroboration
+  #    那一维（几条独立 signal 指向同一家，三跑里最强且免费的确定性来源）。
+  #    「这家公司要不要再花钱分析」由 leads 表的 cooldown 管，位置在
+  #    prefilter 之后、analyzer 之前，别塞进这里。
+  drop_seen_content_hash: true
+
+  # ③ "五金" 词义撞车 —— hardware 这个词在另一个行业里
+  hardware_store:
+    - "fire door"
+    - "PU coating"
+    - "furniture hardware"
+    - "cabinet"
+    - "door and window"
+    - "automotive paint"
+    - "CNC machining"
+
+  # ④ 制造语境 SEO 文。
+  #    词描述的行为，主要执行者是谁 ——
+  #    prototype / tooling / mass production 是"制造语境"=制造商语境。
+  supplier_content:
+    - "Buying Guide"
+    - "A B2B Buyer's Guide"
+    - "How to Choose a"
+    - "How Are "
+    - "Factory Price"
+    - "Wholesale"
+
+  # ⑤ 招聘 spam / 无关话题
+  off_topic:
+    - "Virtual Assistant"
+    - "remote assistant"
+    - "interpreter"
+    - "audiobook"
+    - "voice actor"
+    - "Microphone 101"
+
+# ══════════════════════════════════════════════════════════════════════════
+# candidate 级 —— 只丢这一个候选，同一条 raw item 的其他候选照留。
+#
+# 层级搞错会杀真线索：
+#   · 加速器从公司主页发帖恭喜被投公司众筹成功
+#       → author 候选砍，mentioned 候选（真买方）必须留
+#   · 供应商吹「我们帮 Lumen 做了 5000 只耳机」
+#       → author 候选（深圳某音频厂）砍，mentioned 候选（Lumen）必须留
+# ══════════════════════════════════════════════════════════════════════════
+candidate_level:
+
+  # ⑥ 公司主页帖的 author 候选。
+  drop_company_page_author: true
+
+  # ⑨ 一段正文最多 @ 几家公司。超过这个数，它 @ 的那些就不当线索。
+  #
+  #    判据：@ 了一堆公司的帖子是清单、工具盘点、会议回顾、伙伴公告 ——
+  #    它在谈一个集合，里面没有哪一家是「现在有需求的主角」。
+  #    而「X 和 Y 达成合作」「恭喜 Z 众筹成功」这类真有事发生的帖子，
+  #    @ 的公司就那么一两三家。
+  #
+  #    只砍被 @ 的那一侧候选，发帖人自己那一侧照留。理由跟规则⑦
+  #    （供应商 headline 只砍 author 一侧）一模一样：这条规则说的是
+  #    「这些被 @ 的公司都只是清单里的一项」，它对发帖人自己一个字都没说。
+  #    转发要按段数分开数：转发者写一句 @ 一家、而原帖是个十家清单，
+  #    两段的扇出完全不同，混着数会让其中一段被另一段连累。
+  #
+  #    阈值是在调参集上选的，样本里只有 8 个买方，等 Riley 标够了要重定。
+  #    2026-08-27 那 191 条上逐档实测（砍掉的簇 / 误砍的真买方）：
+  #
+  #      N=2   砍 65 家   误砍 1（Bonewave）
+  #      N=3   砍 49 家   误砍 0
+  #      N=4   砍 39 家   误砍 0   ← 现在用这个
+  #      N=5   砍 38 家   误砍 0
+  #      N=8   砍 15 家   误砍 0
+  #
+  #    N=3 到 8 都不误砍，只有 N=2 会杀掉一个真买方 —— 方向是稳的，
+  #    不是刀尖上的调参。取 4 是离那个失败点留一格余量，不是取最省钱的。
+  #
+  #    它救不了规则⑧那批：Kickstarter 所在的帖只 @ 了 2 家。
+  #    两条规则针对的是两件事，不是替代关系。
+  #    被它砍掉的那批，打分实测只有 22-34（只有第三方 mention、
+  #    没有第一人称说话人）→ 真实收益是省 LLM 的钱，不是提高线索质量。
+  max_mentions_per_post: 4
+
+  # ⑧ 不是「做产品的公司」的实体。按 LinkedIn 公司 id 认，不按名字。
+  #
+  #    要解决的是一个实测出来的问题：mentioned 通道把每一个被 @ 的实体都
+  #    当成了线索。133 家里混着众筹平台、媒体、投资方、开发者平台账号，
+  #    每一个都在花 LLM 的钱，而它们永远不可能是买方。
+  #
+  #    判据是「它做不做硬件产品」，不是「它多大」：
+  #
+  #      进这张表   众筹平台 / 媒体 / 分析机构 / 投资方 / 展会
+  #      不进       Samsung、Garmin、Google、Apple —— 它们真做硬件，
+  #                 只是太大，那是打分层 moq_fit 的判断（labels 里
+  #                 big_brand 单列是同一条理由）。混进来会让「砍大厂的
+  #                 规则」在指标上显得完全正确，诱导把打分层职责塞进规则层
+  #      不进       Krisp / LiveKit / Deepgram 这类语音 AI 软件公司 ——
+  #                 它们恰恰可能是买方（想做个带麦的硬件），归 icp_fit
+  #
+  #    按 id 不按名字，两个理由：
+  #      · 名字会撞。这批里就有叫 Gamma / Notion / Work 的实体，
+  #        按名字砍会连带杀掉真叫这个名字的公司
+  #      · mentioned 通道实测 120/120 都带 id，按 id 是精确匹配不是猜
+  #    代价是只有名字的 headline 候选这条规则碰不到（比如 name:mayfield
+  #    那个投资方）。那批留着，代价是一次 LLM 调用、分数在 30 上下，
+  #    不会误伤真买方 —— 按名字砍的风险比这个大。
+  #
+  #    这张表长不完，也不需要长完：漏掉一个只是多花一次钱，
+  #    不会丢线索。别为了补全它去放宽判据。
+  not_a_buyer:
+    # 众筹平台
+    "413999": Kickstarter
+    # 媒体 / 分析机构 / 展会
+    "5597": Forbes
+    "200000021": Counterpoint Research
+    "12784": Everest Group
+    "200000022": HearingTracker
+    "200000020": Healthcare Rap Podcast
+    "200000016": The Print Show
+    "19321": United Talent Agency
+    # 投资方
+    "200000025": Dayone Capital
+    "200000024": 顺为资本 Shunwei Capital
+    "200000019": Shenzhen Capital Group
+
+  # ⑦ 供应商侧 headline（音频版）—— 看 author.info
+  supplier_headline:
+    - "OEM/ODM"
+    - "OEM ODM"
+    - "Export Sales"
+    - "Sales Manager"
+    - "Sourcing Partner"
+    - "Manufacturer"
+    - "Audio Manufacturing"
+    - "Bone Conduction"
+    - "Mold"
+    - "3C Audio"
+    - "Helping distributors"
+    - "Helping Brands Build"
+    - "的销售经理"
+    - "的业务经理"

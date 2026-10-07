@@ -1,0 +1,68 @@
+# Seed queries. scripts/seed_queries.py loads this file into the queries table
+# with source=manual. After that the queries table is the only authority - this
+# file is seed data, not runtime config.
+#
+# pool defaults to candidate and is optional per entry. These three are the best
+# guess we have, drawn from three real harvest runs, but not one of them has a
+# single row in query_executions yet. Seeding them as pinned would put unproven
+# guesses into the pool that is never evaluated and never retired, so a query
+# that turns out to be bad would keep running every day forever. candidate is
+# the pool that has promotion and retirement rules, which is exactly what an
+# unproven query needs.
+#
+# Write pool: pinned on an entry only when a human has decided this query must
+# run regardless of how it performs. Nothing here qualifies yet.
+#
+# Re-running the seed never overwrites a row that is already there. A query that
+# stats.py has since promoted to proven, or that the memory processor has slowed
+# down, must not be silently reset just because someone re-ran the seed. The
+# script reports the differences instead of applying them.
+#
+# Changing the text of an entry does not edit that row - normalized text is the
+# identity, so a reworded query is a new row and the old one keeps running.
+# The script reports those as orphans.
+#
+# What the first three harvest runs actually showed: only two query shapes work.
+#   shape A   platform or event word    Kickstarter AND (category)
+#   shape B   form factor + sense word  wearable AND (microphone OR audio OR voice)
+# Hit rate went 5% -> 7.5% -> 8.7%; audio-category hits went 0 -> 3 -> 6.
+#
+# "ODM OR OEM" has been removed. Do not add it back. The root cause is not word
+# choice, it is the structure of keyword search: the people looking for a factory
+# and the factories themselves use the same words. Searching a keyword returns
+# every user of that keyword, and suppliers are far more numerous and post far
+# more often - advertising is their job, while a buyer may say it once a year.
+
+queries:
+  # Stock pool: the same few people keep coming back, content rarely changes.
+  # Cadence 7 days.
+  - text: "looking for a hardware manufacturing partner"
+    source_type: linkedin_post
+    cadence_days: 7
+    note: |
+      The control run hit the same 3 people three times. The wording itself is
+      right, but the pool is stock, not flow. Running it daily just burns harvest
+      budget, and its novel_lead_count would stay low forever, which would get it
+      unfairly demoted in the proven ranking. Hence 7 days.
+
+  # Flow pool: content keeps refreshing. Cadence 1 day.
+  - text: "Kickstarter AND (microphone OR audio OR \"voice recorder\")"
+    source_type: linkedin_post
+    cadence_days: 1
+    note: |
+      Shape A. A funded campaign means the team needs a manufacturing partner,
+      with almost no supplier noise - factories do not run crowdfunding campaigns.
+      The pain peaks 1 to 3 months after the campaign closes.
+
+  - text: "wearable AND (microphone OR audio OR voice)"
+    source_type: linkedin_post
+    cadence_days: 1
+    note: Shape B. Form factor word plus sense word.
+
+# HarvestAPI limits searchQueries to 500 characters and 5 boolean operators per query.
+
+# Not tried yet, worth scheduling after step 5. Use complaint and help-seeking
+# wording instead of industry terms - both sides of the market use the terms,
+# only buyers complain:
+#   "our manufacturer missed" / "switching manufacturers"
+#   "manufacturing delays" / "factory quality issues"

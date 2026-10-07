@@ -1,0 +1,135 @@
+# 推卡之前找联系方式（triggers/contacts.py）的几个数。改的是业务判断，不用改代码。
+
+# 单价，只用来在花钱之前报价、跟月度上限比。
+#
+# 记账不用这几个数：每次调完 actor，Apify 会告诉我们这一次真扣了多少（apify.ActorRun.cost_usd），
+# 记进 actor_spend 的是那个真值。两者会不一样：找邮箱只在找到的时候按 0.01 收，
+# 没找到只收 0.004。所以按这里报价是往高了报，
+# 挡得偏严，不会偏松。
+#
+# 数取自 Apify 的 pricingInfos 里 BRONZE 档（我们这一档）。标价会变，改之前先去账单上对一次。
+prices:
+  # harvestapi/linkedin-company，每家公司
+  company_usd: 0.004
+  # 同一个 actor，每次 run 另收一次启动费
+  company_run_start_usd: 0.00005
+  # harvestapi/linkedin-profile-scraper 带找邮箱那个模式，每个人（找到邮箱时的价，是上限）
+  person_with_email_usd: 0.01
+
+# 一家公司最多花钱查几个作者。
+#
+# 一家公司的证据一般只有一两条，转发的一条出两个作者。真正职位串里写着这家名字的，
+# 一般就是创始人一两个，所以每家最多花钱找 2 个人。
+# 以前查过的人算在这 2 个里：查过 2 个的公司，这一次一个都不再查
+max_people_per_lead: 2
+
+# 公司名跟职位串比对的两条例外（P8）：名字只有一个词，而且太短、或者是常用英文单词，
+# 就不比，这家的个人作者一律按「职位串里没有这家」算、不花钱查。
+#
+# 不比的原因：职位串里的 'air quality'、'on air' 会被当成 Air 这家公司的人，白花 0.01。
+# 不比的代价：漏掉这家真正的人。他的主页和帖子卡片上照样有，Riley 点开就能判断。
+name_match:
+  # 单个词、不超过这么多字母就算太短：bbc、bic、bvf、air
+  max_short_length: 3
+
+  # 常用英文单词。从库里单个词名字的公司里挑出来的，挑的是本身就是普通英文单词的
+  # 那几个（Nothing、Tidal、Fever）。不用完整的英文词表：那种表几万个词，很多词拿来当品牌名
+  # 之后，在职位串里其实不会撞车，全挡掉会漏掉太多真正的人。
+  # 以后新进来的公司名是常用词的，往这里加一个
+  common_words:
+    - air
+    - apple
+    - audible
+    - augment
+    - boundless
+    - climaxed
+    - docket
+    - fever
+    - globe
+    - grenade
+    - large
+    - mind
+    - mint
+    - nothing
+    - satisfy
+    - secretariat
+    - spry
+    - tidal
+
+    # 下面这一段是公司名里常见的行业通用词。它们主要挡 P7（职位串里只对上公司名的一部分）：
+    # 公司名 'spark creative group'，职位串 'Creative Director at Bright Idea Lab'，
+    # 撞上的是 creative —— 他是 Bright Idea Lab 的人，跟 Spark Creative Group 没关系，
+    # 但不挡的话卡片会写「看不出发帖人是不是这家公司的」。
+    # 挡掉之后公司名里只剩 bolt 拿去比，职位串里没有 bolt，就落到 P5「不是这家的」。
+    # 整个公司名就是这些词里的一个（比如一家公司就叫 Audio）也算太常见，按 P8 不比
+    - the
+    - and
+    - new
+    - group
+    - company
+    - creative
+    - media
+    - studio
+    - studios
+    - audio
+    - sound
+    - music
+    - records
+    - lab
+    - labs
+    - tech
+    - technology
+    - technologies
+    - electronics
+    - digital
+    - design
+    - systems
+    - solutions
+    - products
+    - global
+    - international
+    - education
+    - consulting
+    - services
+    - marketing
+    - partners
+    - ventures
+
+# 抓官网首页同时开几个。一家首页一般几秒，慢的要等到超时；
+# 一个一个抓的话几十家要等好几分钟，而用户在对话里等着
+homepage_workers: 8
+
+# 共用平台的域名：LinkedIn 上的「官网」是公司自己填的，小公司常填一个 linktr.ee、Instagram、
+# 众筹页之类的地址。这些域名是平台的，不是这家公司的：
+#     不写进 leads.domain   写了的话，第二家也填 linktr.ee 的公司会被误报成「两行是同一家公司」
+#     不找邮箱              页面上 @instagram.com 这种地址是平台的，不是这家的
+# 比的是取出来的域名（公司自己买下的那一段），所以写 wixsite.com 就挡住所有 xxx.wixsite.com。
+# 以后看到新的平台，往这里加一个
+shared_hosts:
+  - linktr.ee
+  - linkin.bio
+  - beacons.ai
+  - facebook.com
+  - instagram.com
+  - linkedin.com
+  - twitter.com
+  - x.com
+  - youtube.com
+  - tiktok.com
+  - kickstarter.com
+  - indiegogo.com
+  - amazon.com
+  - etsy.com
+  - medium.com
+  - substack.com
+  - google.com
+  - github.io
+  - wixsite.com
+  - myshopify.com
+  - squarespace.com
+  - weebly.com
+  - wordpress.com
+  - blogspot.com
+  - carrd.co
+  - notion.site
+  - bit.ly

@@ -1,0 +1,44 @@
+# 写稿之前要告诉模型的负面知识 —— 稿子里哪一类写法别用。
+#
+# 跟 query_knowledge.yaml 同一个格式（key / scope / statement / source），用同一个函数读
+# （query_intelligence/knowledge.load_avoid），区别只在 scope 是 draft。
+# 这份也是手写的：真正该装它的地方是 memories 那张表，等 memory processor 做好、
+# 能从 draft_revisions（每一版稿子和用户的修改意见）里学出经验，那边会多一个来源，
+# retrieve_knowledge 节点只是多读一处，形状不用改。
+#
+# 加一条的门槛跟 query 那份一样：说得出出处。说不出的不要写 —— 模型会认真照做，
+# 而一条编出来的经验没有任何症状。
+#
+# 读它的是 drafting 图的 retrieve_knowledge（开对话时读一次，放进 state["knowledge"]["avoid"]），
+# 用它的是以后的 plan_drafts / write_draft / review_draft。
+
+avoid:
+  - key: third-party-evidence-no-fake-coincidence
+    scope: draft
+    statement: >-
+      证据是从第三方口中得知的（媒体报道、别人发帖 @ 了这家公司），开场白不要写成
+      「我看到你发的帖子」「刚好刷到你们的消息」。说话的人不是收件人，装作偶然看到
+      本人的帖子，对方一眼就知道是假的。可以写成「看到 Audio Weekly 报道了你们的众筹」
+      这种说清楚消息从哪来的。
+    source: >-
+      models/signal.py 里 LeadType 的说明：第一人称和第三方两组证据的开场句不能共用，
+      证据的 lead_type.is_first_person 就是为这件事留的。
+
+  - key: our-numbers-only-from-facts
+    scope: draft
+    statement: >-
+      稿子里关于我们自己的数字（起订量、年产量、做过多少项目、多少年经验、认证）只能用
+      config/facts.json 里有的，写法也照那里的（例如 250+ 不改成 250，15+ 不改成 16）。
+      facts.json 里没有的数字一个都不写。
+    source: >-
+      config/facts.json 开头的 _comment：它就是防编造的白名单，关于我们自己的硬数字
+      不在这里的，算硬错误，不算文风问题。
+
+  - key: no-lead-time-or-sample-cost-promises
+    scope: draft
+    statement: >-
+      不要承诺交期、打样费、开模费，也不要举具体客户的名字当案例。这几样我们现在没有
+      准确的数，写一个听起来合理的数比不写更糟。对方问起就留给人来回答。
+    source: >-
+      config/facts.json 的 _todo：交期、开模和打样费用、按品类的具名案例都不在官网上，
+      要等 Alex 或 Morgan 给出准确数字才能加。

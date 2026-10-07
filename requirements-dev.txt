@@ -1,0 +1,5 @@
+# 只有 dev 依赖。
+# 运行时依赖（psycopg / langgraph / slack-sdk / openai / pyyaml）等真用到那一步再加 ——
+# 现在装上去，scripts/check_isolation.py 那条「models/ 只依赖标准库」的验收就形同虚设。
+pytest>=8.0
+ruff>=0.6

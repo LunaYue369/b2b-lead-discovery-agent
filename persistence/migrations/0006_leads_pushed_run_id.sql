@@ -1,0 +1,31 @@
+-- leads 记下「这张卡是哪一跑推出去的」
+--
+-- pushed_at 只回答了「推过没有」，答不了「哪一跑推的」。而 ignored 那批
+-- 的归因非它不可：
+--
+--     approval yield = 这条 query 找来的线索，Riley 认了几成。
+--     分子来自 lead_feedback，分母要算上她没回应的那些（沉默是弱负信号）。
+--     而「哪条 query 找到这家公司」记在 lead_discovery_hits
+--     (query_id, lead_id, run_id) 上，键里有 run_id。
+--
+-- ignored 那一行是定时扫描写的，写的时候只知道「这张卡推出去超过 N 天
+-- 没人动」。没有这一列的话，那一行的 run_id 只能拿 first_seen_run_id 顶 ——
+-- 而「第一次发现这家公司的那一跑」和「推这张卡的那一跑」经常不是同一跑：
+-- 一家公司可能 8-20 头一回进库、当天分数不够没上卡片，冷却期过了
+-- 9-10 重新分析涨过线才被推。拿 first_seen 归因，等于把一条 ignored
+-- 算给 8-20 那天的 query，而那天它根本没推给谁。
+--
+-- 这属于「不知道就别填」那一类：填一个看着合理的 run_id 比留空坏得多，
+-- 留空在归因时会被 join 掉、看得见；填错的会把一条反馈算给一条
+-- 当天没推过这家公司的 query，而那个数决定 60% 的采集预算。
+--
+-- 允许为空：从来没推给 Riley 过的公司（C 档，占绝大多数）这一列就是空的。
+-- 它跟 pushed_at 是一对，两个要么都有值要么都是空 —— 不加 CHECK 焊死
+-- 是因为写它们的地方只有一处（推卡片那一步），而那里同时写两列；
+-- 加约束反而会在将来补历史数据时挡路。
+--
+-- on delete set null 而不是 cascade：runs 那行没了不该把公司也删掉。
+-- 公司是长期资产，跑是账。
+
+alter table leads
+    add column pushed_run_id bigint references runs (id) on delete set null;

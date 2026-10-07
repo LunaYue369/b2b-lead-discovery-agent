@@ -1,0 +1,33 @@
+-- queries 记下「这条词当初是为哪个题目造出来的」
+--
+-- interactive 那条路上，用户说的话先被 understand_intent 读成几个品类词
+-- （topics），planner 再把它们拟成一条布尔检索式落进 queries.text。到今天为止
+-- 左边那几个词在落库这一步就丢了，而它们正是下一次对话要拿来找「这个题目我们
+-- 以前搜过吗」的东西。
+--
+-- 没有这一列的话，检索只能拿品类词去猜 query 的正文，而两边粒度天生不一样：
+-- 品类词是用户说话的粒度（conference microphone），queries.text 是布尔式里
+-- 单词的粒度（microphone）。猜得到猜不到都不报错，只是命中率长期很低。
+-- 有了这一列，interactive 建的那些就能拿 topic 直接对 topic，精确、不用猜；
+-- 种子和 memory_generated 那些没有 topics，仍然走猜正文那条路。
+--
+-- 为什么单开一列，不塞进那个还没建的 filters jsonb：filters 要装的是采集旋钮
+-- （authorKeywords / authorsCompanies 这些），它们改变采回来的是什么，所以迟早
+-- 要回答「内容词一样、筛人不同算不算同一条 query」那个唯一键的问题。topics
+-- 不改变采回来的任何东西，它是归因不是参数 —— 同一条 text 不管为哪个题目造的
+-- 都是同一条 query。混进 filters 会让那个唯一键问题变成「一半字段该进、一半
+-- 不该」，更难回答。所以 filters 那个决定原封不动地还悬在那儿。
+--
+-- text[] 不是 jsonb：这一列将来要做的唯一一件事是「跟一批词比有没有重合」，
+-- 数组有现成的 && 算子，jsonb 得先展开。
+--
+-- 默认空数组、not null：种子和 memory_generated 那些是真的没有题目，不是
+-- 「不知道有没有」。空数组和 null 在这件事上区分不出任何东西，而 null 会让
+-- 每一处读它的地方都要先判一次。
+--
+-- 不建索引：今天匹配是在 Python 里做的（queries 表一共几行，全取回来再挑）。
+-- 等它长到必须在库里筛的那天再建，那时候才知道该建 GIN 还是别的 —— 现在建
+-- 一个没人用的索引，只是把「将来会怎么查」这个猜测写进 schema。
+
+alter table queries
+    add column topics text[] not null default '{}';

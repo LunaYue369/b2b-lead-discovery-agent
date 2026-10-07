@@ -1,0 +1,22 @@
+# 密钥 —— 连接串、Apify token、Slack token、OpenAI key 一律只在 .env
+.env
+.env.*
+!.env.example
+
+# venv
+.venv/
+venv/
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# 日志 / 临时
+*.log
+tmp/
+
+# 采集回来的原始数据要进 git（它是 prefilter 的回归集，不是垃圾）。
+# 「原始数据当天落自己的库」这条规则是从「供应商会死」推出来的（Proxycurl 前例）。
+# 所以将来 data/ 下面的 json 不要往这里加忽略规则。

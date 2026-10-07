@@ -1,0 +1,49 @@
+# 拟词之前要告诉 planner 的负面知识 —— 哪一类词别用。
+#
+# 这份是手写的，不是学出来的。真正该装它的地方是 memories 那张表（0001_init 建好了），
+# 但往那张表写东西的 memory processor 是 step 8，还没做，所以全库一行都没有。
+# 而这几条结论我们其实早就有了，只是散在实验记录和 prefilter 的注释里。
+#
+# 形状照 memories 抄（key / scope / statement），这样 step 8 上线之后
+# retrieve_knowledge 只是多读一个来源，节点不用改。
+#
+# 第四个字段叫 source 而不是 confidence 或 support，是有意的：我们手上没有分母，
+# 填一个 0.9 就是凭空造精度，正是 memories 那条「confidence 不许自己写、必须由
+# stats 算」要防的。等 memory processor 把同一条经验算出来，它带着真的 confidence
+# 和 support 进 memories 表，那时候两份合流。
+#
+# 今天只有 avoid 一节。memories 里实际装三类（这么做更好 / 别这么做 / 就该这么做），
+# 正面那两类今天没有落点：它们要么已经写在 config/queries.yaml 的注释里（两种有效
+# 形状），要么得等真跑出数据才谈得上。别在这里补一节 prefer 来凑对称。
+#
+# 加一条的门槛：说得出出处。说不出的不要写 —— planner 会认真照做，而一条编出来的
+# 经验没有任何症状。
+
+avoid:
+  - key: supplier-seo-floods-manufacturer-queries
+    scope: query
+    statement: >-
+      query 里不要用 manufacturer / ODM / OEM / factory 这类词。找代工厂的人和代工厂
+      用同一批词，而工厂天天发广告、买方可能一年才说一次，所以按这类词搜回来的绝大
+      多数是供应商自己。这些帖子在采集那一刻就已经计过费了，prefilter 事后砍掉省的
+      只是 LLM 的钱。
+    source: >-
+      三跑实测。config/queries.yaml 的注释里写明 "ODM OR OEM" 那条已经删掉、不许加回来。
+
+  - key: buying-guide-words-return-seo-articles
+    scope: query
+    statement: >-
+      不要用采购指南语气的词（buying guide / how to choose / factory price / wholesale）。
+      它们召回的是制造语境的 SEO 文，措辞跟真买方的求助帖高度相似 —— prototype、
+      tooling、mass production、MOQ 全中，人工读都中招过三次。
+    source: >-
+      config/filters.yaml signal 级第四条 supplier_content 的词表就是从这类帖子里抽的。
+
+  - key: hardware-collides-with-the-other-industry
+    scope: query
+    statement: >-
+      hardware 这个词不要单独用。它在另一个行业里指五金，会把 fire door、cabinet、
+      furniture hardware、CNC machining 这类帖子一起带回来。要用就跟品类词绑在一起
+      （hardware AND (microphone OR audio)），别让它自己当一个 OR 分支。
+    source: >-
+      config/filters.yaml signal 级第三条 hardware_store 那张词表，是从真实召回里抽的。
